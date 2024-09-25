@@ -4,20 +4,19 @@ pipeline {
     environment {
         registry = "sc0rpion/my-node-app"
         registryCredential = 'dockerhub'
+        dockerImage = ''
     }
 
     stages {
         stage('Cloning Git') {
             steps {
-                git 'https://github.com/GameZoneHacker/node-js-dummy-test.git'
+                git 'https://github.com/GameZoneHacker/node-js-dummy-test'
             }
         }
         stage('Building Docker Image') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub') {
-                        def dockerImage = docker.build("${registry}")
-                    }
+                    dockerImage = docker.build("${registry}:latest", ".")
                 }
             }
         }
@@ -25,15 +24,14 @@ pipeline {
             steps {
                 script {
                     // Example using Trivy for security scan
-                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${registry}"
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${dockerImage.imageName()}'
                 }
             }
         }
         stage('Deploying Image') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub') {
-                        def dockerImage = docker.image("${registry}")
+                    docker.withRegistry('', registryCredential) {
                         dockerImage.push()
                     }
                 }
@@ -41,7 +39,10 @@ pipeline {
         }
         stage('Clean up') {
             steps {
-                sh "docker rmi ${registry}"
+                script {
+                    dockerImage.remove()
+                    sh "docker rmi ${registry}:latest"
+                }
             }
         }
     }
