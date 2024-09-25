@@ -16,15 +16,18 @@ pipeline {
         stage('Building Docker Image') {
             steps {
                 script {
-                    dockerImage = docker.build("${registry}:latest", ".")
+                    dockerImage = docker.build registry
                 }
             }
         }
         stage('Security Scan') {
             steps {
                 script {
-                    // Example using Trivy for security scan
-                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${dockerImage.imageName()}'
+                    // Ensure bash is used for substitution
+                    sh '''
+                        #!/bin/bash
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${registry}
+                    '''
                 }
             }
         }
@@ -39,10 +42,7 @@ pipeline {
         }
         stage('Clean up') {
             steps {
-                script {
-                    dockerImage.remove()
-                    sh "docker rmi ${registry}:latest"
-                }
+                sh "docker rmi ${registry}"
             }
         }
     }
